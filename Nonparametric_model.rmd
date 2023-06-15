@@ -1,0 +1,160 @@
+---
+title: "Home Assignment - Nonparametric Statistics - 2023"
+author: "Thi Lan Anh Nguyen "
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Task 1
+
+a) Generate a sample with n=1000 from a Gamma distribution with shape=2 and rate=3. Use seed=656. 
+Plot a histogram of your data. 
+
+```{r}
+set.seed = 656
+x = rgamma(n = 1000, shape = 2, rate = 3)
+
+hist(x, probability = T)
+```
+
+b) Write a function that would use the R-function hist() to estimate a pdf of X in an arbitrary point $x_0$ (scalar). The new function should have the data, the evaluation point and the number of breaks as arguments (suppress the plot).
+
+```{r}
+my.hist = function(x,x0,nb){
+  # x: sample
+  # x0: point(s) of interest
+  # nb: number of breaks
+  
+  #we can either create a vector giving breakpoints or just a single number giving number of bins
+  #hist = hist(x, breaks = seq(min(x),max(x)),length.out = nb), plot = F)
+  hist = hist(x, breaks = nb-1, plot = F)
+  for (i in 1:length(hist$breaks)){
+    if ((x0 >= hist$breaks[i])&(x0 < hist$breaks[i+1])){
+        f = hist$dens[i]
+    }
+  }
+  return(f)
+}
+#my.hist(x, 2/3, 6)
+```
+
+c) Using the R-function hist(), perform a Monte-Carlo (MC = 1000) bias/variance analysis of the histogram estimator in point $x_0 = E(X)$ depending on the number of breaks. Use your custom function from b). Use samples of size n=1000 from the distribution in a).
+
+```{r}
+mc = 1000
+b.mc = 3:500
+x0 = 2/3
+
+# Bins loop
+n = 1000
+dens.mc = matrix(0,nrow=mc, ncol=length(b.mc))
+
+for(i in 1:length(b.mc)){
+  for(imc in 1:mc){
+    x = rgamma(n,shape = 2, rate = 3)
+    dens.mc[imc,i] = my.hist(x,x0,b.mc[i])
+  }
+}
+bias.b = -colMeans(dens.mc) + dgamma(x0,2,3)
+var.b = apply(dens.mc,2,var)
+
+```
+
+
+d) Plot the paths as such:
+
+```{r}
+plot(b.mc, rep(0, times=length(b.mc)), type="l",
+     col="red",lwd=2,ylim=c(min(bias.b),max(var.b)),
+     xlab="Breaks",ylab="",
+     main="Bias/Variance Trade-off")
+lines(b.mc,bias.b,col="blue",lwd=1,lty=4)
+lines(b.mc,var.b,lwd=1,lty=2)
+grid()
+legend("topleft",c("Bias","Var"),col=c("blue","black"),lty=c(4,2),lwd=2)
+ 
+```
+
+# Task 2
+
+a) Perform the same bias/variance analysis as in task 1. using the same data set for a KDE with the R function density(). You should base your simulation on the bandwidth. Use a Gaussian kernel.
+
+```{r}
+#In order to compare, we calculate the bandwidth based on number of breaks from task 1
+
+mc = 1000
+bw.mc = (max(x) - min(x))/(b.mc-1)
+x0 = 2/3
+
+# Bins loop
+n = 1000
+dens.mc = matrix(0, nrow=mc, ncol=length(bw.mc))
+
+for(i in 1:length(bw.mc)){
+  for(imc in 1:mc){
+    x = rgamma(n, shape = 2, rate = 3)
+    dens.mc[imc,i] = approxfun(density(x, bw = bw.mc[i], kernel = "gaussian" ))(x0)
+  }
+}
+
+bias.b = -colMeans(dens.mc) + dgamma(x0,2,3)
+var.b = apply(dens.mc,2,var)
+```
+
+b) Plot your results.
+
+```{r}
+#In order to compare, we keep the x-axis as number of breaks
+
+plot(b.mc, rep(0, times=length(b.mc)), type="l",
+     col="red",lwd=2,ylim=c(min(bias.b), max(bias.b)),
+     xlab="Breaks",ylab="",
+     main="Bias/Variance Trade-off")
+lines(b.mc,bias.b,col="blue",lwd=1,lty=4)
+lines(b.mc,var.b,lwd=1,lty=2)
+grid()
+legend("topright",c("Bias","Var"),col=c("blue","black"), lty=c(4,4),lwd=2)
+
+# Comment: we can see that KDE performs better in comparison to histogram in this case with quick convergence to 0 of bias and much smaller variance
+```
+
+# Task 3
+
+a)  Draw a random sample $X$ from $\chi^2(4)$ with $n=500$. Using this sample generate the data according to the true model 
+\[Y = -0.5 - 1.2 \cos(\sqrt{X}) + \varepsilon, \qquad \qquad \varepsilon \stackrel{iid}{\sim}\mathcal{N}(0,1)\]
+\textbf{Hint}: Use $seed=656$ for $X$ and $seed=757$ for $\varepsilon$.
+
+```{r}
+n = 500
+
+set.seed(656)
+x = rchisq(n,4)
+
+set.seed(757)
+eps = rnorm(n, 0, 1)
+
+y = -0.5 - 1.2*cos(sqrt(x)) + eps
+```
+
+b) Plot the data cloud and the true model in one graph as such:
+
+```{r}
+plot(x,y)
+order = order(x)
+lines(x[order], y = -0.5 - 1.2*cos(sqrt(x[order])), col = "purple", lwd = 2, lty = 2)
+```
+
+c) Use functions from package KernSmooth to estimate a local linear regression for the given data (x,y). Use the optimal bandwidth. Plot your result in the graph from b).
+
+```{r}
+h.opt = 1.059*sd(x)*(n^(-1/5))
+library(KernSmooth)
+fit = locpoly(x, y, bandwidth = h.opt)
+
+plot(x,y)
+order = order(x)
+lines(x[order], y = -0.5 - 1.2*cos(sqrt(x[order])), col = "purple", lwd = 2, lty = 2)
+lines(fit, col = "red")
+```
+
